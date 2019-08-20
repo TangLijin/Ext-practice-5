@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" type="text/css" href="./ext-3.3.0/resources/css/ext-all.css" />
+    <script type="text/javascript" src="./ext-3.3.0/adapter/ext/ext-base.js"></script>
+    <script type="text/javascript" src="./ext-3.3.0/ext-all.js"></script>
+    <script type="text/javascript" src="./ext-3.3.0/examples/ux/PagingMemoryProxy.js"></script>
+    <title>Homework Grid</title>
+</head>
+
+<script>
+    Ext.onReady(function() {
+
+        let data = [
+            ['Louis', '乙班', 'male', 22, '1998-01-15T02:57:03'],
+            ['Pipi', '甲班', 'female', 18, '1998-01-15T02:57:03'],
+            ['张三', '丙班', 'male', 21, '1998-01-15T02:57:03'],
+            ['Lujin', '乙班', 'male', 25, '1998-01-15T02:57:03'],
+            ['Hevin', 'H班', 'female', 29, '1998-01-15T02:57:03']
+        ]
+
+        let selectMode = new Ext.grid.CheckboxSelectionModel()
+
+        let columnModel = new Ext.grid.ColumnModel([
+            new Ext.grid.RowNumberer(),
+            selectMode, {
+                header: 'Name',
+                dataIndex: 'name',
+                sortable: true,
+                editor: new Ext.grid.GridEditor(new Ext.form.TextField({
+                    allowBlank: false
+                }))
+            }, {
+                header: 'Class',
+                dataIndex: 'class',
+                sortable: true,
+                editor: new Ext.grid.GridEditor(new Ext.form.TextField({
+                    allowBlank: false
+                }))
+            }, {
+                header: 'Sex',
+                dataIndex: 'sex',
+                editor: new Ext.grid.GridEditor(
+                    new Ext.form.TextField({
+                        allowBlank: false
+                    }),
+                ),
+                renderer: function(value) {
+                    if (value === 'male') {
+                        return 'Male'
+                    } else if (value === 'female') {
+                        return 'Female'
+                    }
+                    return value
+                }
+            }, {
+                header: 'Age',
+                dataIndex: 'age',
+                editor: new Ext.grid.GridEditor(new Ext.form.NumberField({
+                    minValue: 1,
+                    allowBlank: false,
+                    allowDecimals: false
+                }))
+            }, {
+                header: 'Birthday',
+                dataIndex: 'birthday',
+                renderer: Ext.util.Format.dateRenderer('Y-m-d'),
+                editor: new Ext.grid.GridEditor(
+                    new Ext.form.DateField({
+                        allowBlank: false,
+                        format: 'Y-m-d'
+                    })
+                )
+            }, {
+                header: 'Avatar',
+                dataIndex: 'avatar',
+                renderer: function() {
+                    return '待上传'
+                }
+            },
+        ])
+
+        let store = new Ext.data.GroupingStore({
+            proxy: new Ext.data.PagingMemoryProxy(data),
+            reader: new Ext.data.ArrayReader({}, [{
+                name: 'name'
+            }, {
+                name: 'class'
+            }, {
+                name: 'sex'
+            }, {
+                name: 'age'
+            }, {
+                name: 'birthday'
+            }]),
+            groupField: 'class',
+            sortInfo: {
+                field: 'sex',
+                direction: 'ASC'
+            }
+        })
+
+        let pagingToolBar = new Ext.PagingToolbar({
+            pageSize: 4,
+            store: store,
+            displayInfo: true,
+            displayMsg: 'Show records from {0} to {1}, total: {2}',
+            emptyText: 'No record.'
+        })
+
+        function getCurrentSelection() {
+            let selections = selectMode.getSelections();
+            return selections[selections.length - 1];
+        }
+
+        function getRecordIndex(selection) {
+            return store.indexOf(selection);
+        }
+
+        function handleSelectionFirst() {
+            let selection = getCurrentSelection();
+            store.remove(selection);
+            store.insert(0, selection)
+        }
+
+        function handleSelectionLast() {
+            let selection = getCurrentSelection();
+            store.remove(selection);
+            store.insert(store.getCount(), selection)
+        }
+
+
+        function handleSelectionUp() {
+            let selection = getCurrentSelection();
+            let index = getRecordIndex(selection);
+            if (selection === 0) {
+                return;
+            }
+            store.remove(selection);
+            store.insert(index - 1, selection)
+        }
+
+        function handleSelectionDown() {
+            let selection = getCurrentSelection();
+            let index = getRecordIndex(selection);
+            if (index === store.getCount() - 1) {
+                return;
+            }
+            store.remove(selection);
+            store.insert(index + 1, selection);
+        }
+
+        let rowContextMenu = new Ext.menu.Menu({
+            id: 'rowContentMenu',
+            items: [{
+                text: 'First',
+                handler: handleSelectionFirst
+            }, {
+                text: 'Up',
+                handler: handleSelectionUp
+            }, {
+                text: 'Down',
+                handler: handleSelectionDown
+            }, {
+                text: 'Last',
+                handler: handleSelectionLast
+            }]
+        })
+
+        let panel = new Ext.grid.EditorGridPanel({
+            id: 'grid',
+            autoHeight: true,
+            store: store,
+            cm: columnModel,
+            sm: selectMode,
+            view: new Ext.grid.GroupingView(),
+            tbar: new Ext.Toolbar([{
+                    text: 'Add',
+                    handler: handleAdd
+                },
+                '', {
+                    text: 'Delete',
+                    handler: handleDelete
+                }
+            ]),
+            bbar: pagingToolBar
+        })
+
+        function handleDelete() {
+            let selections = selectMode.getSelections();
+
+            !Ext.isEmpty(selections) && Ext.MessageBox.confirm("Warning", "Are you sure to delete selected columns? ", function(btn) {
+                if (btn === 'yes') {
+                    selections.forEach(item => {
+                        store.remove(item)
+                    })
+                }
+            })
+        }
+
+        function handleAdd() {
+            let selection = getCurrentSelection();
+            let initValue = {
+                name: '',
+                class: 'newClass',
+                sex: 'male',
+                age: 18,
+                birthday: new Date()
+            }
+            let index = 0
+            if (selection) {
+                initValue.class = store.getById(selection.id).data.class
+                index = getRecordIndex(selection) + 1;
+            }
+            let newRecord = new Ext.data.Record(initValue);
+            panel.stopEditing();
+            store.insert(index, newRecord);
+            panel.startEditing(index, 0);
+            newRecord.dirty = true;
+            newRecord.modified = initValue;
+            if (store.modified.indexOf(newRecord) === -1) {
+                store.modified.push(newRecord);
+            }
+        }
+
+        panel.on('rowcontextmenu', function(panel, rowIndex, e) {
+            e.preventDefault();
+            panel.getSelectionModel().selectRow(rowIndex);
+            rowContextMenu.showAt(e.getXY())
+        })
+
+        store.load({
+            params: {
+                start: 0,
+                limit: 4
+            }
+        })
+
+        new Ext.Viewport({
+            items: [panel]
+        })
+
+    })
+</script>
+
+<body>
+
+</body>
+
+</html>
